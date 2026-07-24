@@ -328,6 +328,9 @@
       showDoneScreen(name, phone, userId);
       toast('Khush aamdeed Quill par, ' + name + '!');
       [nameInput, phoneInput, passInput, confirmInput].forEach(i => i.value = '');
+      setTimeout(() => {
+        window.location.href = 'chats.html?name=' + encodeURIComponent(name) + '&phone=' + encodeURIComponent(phone) + '&uid=' + encodeURIComponent(userId);
+      }, 1200);
     } catch(err){
       console.error(err);
       setError(phoneInput, document.getElementById('suPhoneErr'), 'Kuch गड़बड़ hui, dobara koshish karein');
@@ -374,6 +377,9 @@
       showDoneScreen(data.name, data.phone, data.userId);
       toast('Wapas aane ka shukriya, ' + data.name + '!');
       phoneInput.value = ''; passInput.value = '';
+      setTimeout(() => {
+        window.location.href = 'chats.html?name=' + encodeURIComponent(data.name) + '&phone=' + encodeURIComponent(data.phone) + '&uid=' + encodeURIComponent(data.userId);
+      }, 1200);
     } catch(err){
       console.error(err);
       setError(phoneInput, document.getElementById('liPhoneErr'), 'Kuch गड़बड़ hui, dobara koshish karein');
