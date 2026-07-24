@@ -112,9 +112,19 @@
     opacity:0; transition:all 0.35s ease; pointer-events:none; z-index:10;
   }
   .success-toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
+
+  .debug-banner{
+    display:none;
+    position:fixed; top:0; left:0; right:0;
+    background:#8c2f2f; color:#fff; font-family: monospace;
+    font-size:0.75rem; padding:10px 14px; z-index:999;
+    word-break:break-word; line-height:1.4;
+  }
 </style>
 </head>
 <body>
+
+<div class="debug-banner" id="debugBanner"></div>
 
 <div class="stage">
   <div class="card">
@@ -190,6 +200,26 @@
 </div>
 
 <div class="success-toast" id="toast"></div>
+
+<script>
+  // ============================================================
+  // DEBUG BANNER — koi bhi JS error yahan screen par dikh jayega
+  // ============================================================
+  function showDebug(msg){
+    const b = document.getElementById('debugBanner');
+    b.textContent = '⚠️ ' + msg;
+    b.style.display = 'block';
+  }
+  window.addEventListener('error', function(e){
+    showDebug('Error: ' + e.message);
+  });
+  window.addEventListener('unhandledrejection', function(e){
+    showDebug('Error: ' + (e.reason && e.reason.message ? e.reason.message : e.reason));
+  });
+  if(typeof firebase === 'undefined'){
+    showDebug('Firebase SDK load nahi ho paya. Internet connection check karein ya WiFi try karein.');
+  }
+</script>
 
 <script>
   // ============================================================
