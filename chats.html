@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Quill — Chats</title>
 <link href="https://fonts.googleapis.com/css2?family=Kalam:wght@400;700&family=Caveat:wght@600;700&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
 <style>
   :root{
     --paper: #ECE4D3;
@@ -43,10 +45,9 @@
 
   .screen{ position:absolute; inset:9px; display:flex; flex-direction:column; background:var(--paper); transition: transform 0.28s ease; }
   #listScreen{ z-index:1; }
-  #chatScreen{ z-index:2; transform: translateX(100%); }
-  #chatScreen.open{ transform: translateX(0); }
+  #chatScreen, #contactsScreen{ z-index:2; transform: translateX(100%); }
+  #chatScreen.open, #contactsScreen.open{ transform: translateX(0); }
 
-  /* ---------- CHAT LIST HEADER ---------- */
   .list-header{
     display:flex; align-items:center; justify-content:space-between;
     padding:16px 18px 2px;
@@ -63,9 +64,8 @@
     width:32px; height:32px; opacity:0.85;
   }
   .icon-btn svg{ width:19px; height:19px; }
-  .tagline{
-    padding:0 18px 10px; font-size:0.95rem; color:var(--ink-soft); font-style:italic;
-  }
+  .tagline{ padding:0 18px 6px; font-size:0.95rem; color:var(--ink-soft); font-style:italic; }
+  .welcome-line{ padding:0 18px 6px; font-size:0.9rem; color:var(--wax); font-style:italic; }
 
   .tabs-row{
     display:flex; gap:0; padding:6px 14px 0;
@@ -83,7 +83,6 @@
     content:""; position:absolute; left:15%; right:15%; bottom:-1px; height:2px; background:var(--wax);
   }
 
-  /* ---------- CHAT LIST ---------- */
   .chat-list{ flex:1; overflow-y:auto; -webkit-overflow-scrolling:touch; display:flex; flex-direction:column; }
   .empty-state{
     flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center;
@@ -92,18 +91,17 @@
   .empty-state svg{ width:56px; height:56px; color:var(--ink-soft); opacity:0.5; }
   .empty-state .et{ font-family:'Kalam', cursive; font-weight:700; font-size:1.15rem; color:var(--ink); }
   .empty-state .es{ font-size:0.95rem; color:var(--ink-soft); max-width:260px; }
-  .welcome-line{
-    padding:0 18px 6px; font-size:0.9rem; color:var(--wax); font-style:italic;
-  }
+
   .seal-mark{
     position:absolute; bottom:14px; right:16px;
-    width:52px; height:52px; border-radius:50%;
+    width:56px; height:56px; border-radius:50%;
     background: var(--ink); border:3px solid var(--paper);
-    box-shadow:0 0 0 1.5px var(--line);
+    box-shadow:0 0 0 1.5px var(--line), 0 4px 12px rgba(0,0,0,0.25);
     display:flex; align-items:center; justify-content:center;
-    opacity:0.92; pointer-events:none; z-index:5;
+    cursor:pointer; z-index:5;
   }
-  .seal-mark svg{ width:24px; height:24px; color:var(--paper-soft); transform:rotate(12deg); }
+  .seal-mark svg{ width:24px; height:24px; color:var(--paper-soft); }
+
   .chat-row{
     display:flex; align-items:center; gap:13px;
     padding:12px 18px; border-bottom:1px solid rgba(184,168,136,0.3);
@@ -115,7 +113,7 @@
     background: var(--paper-soft); color:var(--ink);
     display:flex; align-items:center; justify-content:center;
     flex-shrink:0; border:1.3px solid var(--line);
-    overflow:hidden; padding:11px;
+    overflow:hidden; padding:11px; font-family:'Kalam',cursive; font-weight:700; font-size:1.2rem;
   }
   .avatar svg{ width:100%; height:100%; }
   .avatar.dark{ background: var(--ink); color: var(--paper-soft); border-color:var(--wax); }
@@ -125,7 +123,7 @@
   .chat-time{ font-size:0.8rem; color:var(--ink-soft); flex-shrink:0; }
   .chat-bottom{ display:flex; justify-content:space-between; align-items:center; margin-top:2px; }
   .chat-preview{
-    font-size:0.95rem; color:var(--ink-soft); display:flex; align-items:center; gap:4px;
+    font-size:0.95rem; color:var(--ink-soft);
     white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:230px;
   }
   .unread-badge{
@@ -135,12 +133,13 @@
     padding:0 5px; font-family:'Kalam', cursive; font-weight:700;
   }
 
-  /* ---------- CHAT CONVERSATION SCREEN ---------- */
-  .chat-header{
+  .sub-header{
     display:flex; align-items:center; gap:10px;
-    padding:12px 14px; border-bottom:1px solid var(--line);
+    padding:14px; border-bottom:1px solid var(--line);
   }
-  .chat-header .avatar{ width:38px; height:38px; padding:8px; }
+  .sub-header-title{ font-family:'Kalam', cursive; font-weight:700; font-size:1.1rem; }
+
+  .chat-header .avatar{ width:38px; height:38px; padding:8px; font-size:0.9rem; }
   .chat-header-info{ flex:1; }
   .chat-header-name{ font-family:'Kalam', cursive; font-weight:700; font-size:1.05rem; }
   .chat-header-status{ font-size:0.83rem; color:var(--ink-soft); }
@@ -160,49 +159,32 @@
   }
   .date-divider .dash{ opacity:0.5; margin:0 6px; }
 
-  .bubble-row{ display:flex; position:relative; z-index:2; }
+  .bubble-row{ display:flex; }
   .bubble-row.out{ justify-content:flex-end; }
   .bubble{
     max-width:75%; padding:9px 13px; border-radius:2px;
     font-size:1.03rem; line-height:1.35; position:relative;
   }
   .bubble::before, .bubble::after{
-    content:"✕"; position:absolute; font-size:0.5rem; opacity:0.5;
-    font-family: sans-serif;
+    content:"✕"; position:absolute; font-size:0.5rem; opacity:0.5; font-family: sans-serif;
   }
   .bubble.in::before, .bubble.in::after{ color: var(--ink-soft); }
   .bubble.out::before, .bubble.out::after{ color: var(--paper); opacity:0.4; }
   .bubble::before{ top:-5px; left:-5px; }
   .bubble::after{ bottom:-5px; right:-5px; }
-  .bubble.in{
-    background: var(--bubble-in); border:1px solid var(--line); color:var(--ink);
-    border-bottom-left-radius:0;
-  }
-  .bubble.out{
-    background: var(--ink); color: var(--paper);
-    border-bottom-right-radius:0;
-  }
-  .bubble-time{
-    display:block; font-size:0.7rem; margin-top:4px; text-align:right;
-    opacity:0.75;
-  }
-
-  .feather-deco{
-    position:absolute; right:6px; bottom:80px; width:80px; height:100px;
-    opacity:0.35; color:var(--ink); pointer-events:none; z-index:1;
-  }
+  .bubble.in{ background: var(--bubble-in); border:1px solid var(--line); color:var(--ink); border-bottom-left-radius:0; }
+  .bubble.out{ background: var(--ink); color: var(--paper); border-bottom-right-radius:0; }
+  .bubble-time{ display:block; font-size:0.7rem; margin-top:4px; text-align:right; opacity:0.75; }
 
   .composer{
     display:flex; align-items:center; gap:8px;
     padding:10px 12px; border-top:1px solid var(--line);
     background: var(--paper);
   }
-  .composer .icon-btn{ opacity:0.7; }
   .composer input{
     flex:1; padding:9px 14px; border-radius:20px;
     border:1px solid var(--line); background: var(--paper-soft);
-    font-family:'Kalam', cursive; font-size:1rem;
-    color: var(--ink); outline:none;
+    font-family:'Kalam', cursive; font-size:1rem; color: var(--ink); outline:none;
   }
   .send-btn{
     width:38px; height:38px; border-radius:50%;
@@ -214,8 +196,7 @@
   .debug-banner{
     display:none; position:fixed; top:0; left:0; right:0;
     background:#8c2f2f; color:#fff; font-family: monospace;
-    font-size:0.75rem; padding:10px 14px; z-index:999;
-    word-break:break-word; line-height:1.4;
+    font-size:0.75rem; padding:10px 14px; z-index:999; word-break:break-word; line-height:1.4;
   }
 </style>
 </head>
@@ -233,20 +214,13 @@
         <svg class="feather-logo" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M34 8C24 14 14 24 10 38c10-4 22-12 28-22 2-3 2-6-1-8-2-1-2-1-3 0Z"/><path d="M10 38c6-4 12-10 17-17"/></svg>
       </div>
       <div class="header-icons">
-        <button class="icon-btn" title="Camera">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2Z"/><circle cx="12" cy="13" r="4"/></svg>
-        </button>
         <button class="icon-btn" title="Search">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
         </button>
-        <button class="icon-btn" title="More">
-          <svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="12" cy="19" r="1.6"/></svg>
-        </button>
       </div>
     </div>
-    <div class="tagline">write. share. connect. <span style="font-size:0.6rem; opacity:0.4;">[build-v5]</span></div>
+    <div class="tagline">write. share. connect.</div>
     <div class="welcome-line" id="welcomeLine" style="display:none;"></div>
-    <div id="debugParams" style="padding:0 18px 6px; font-size:0.75rem; color:#8c2f2f; font-family:monospace;"></div>
 
     <div class="tabs-row">
       <div class="tab-item active">
@@ -264,41 +238,39 @@
     </div>
 
     <div class="chat-list" id="chatList"></div>
-    <div class="seal-mark" id="sealMark"></div>
+    <div class="seal-mark" id="sealMark" title="Naya chat shuru karein">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+    </div>
+  </div>
+
+  <!-- ============ CONTACTS SCREEN (Naya Chat) ============ -->
+  <div class="screen" id="contactsScreen">
+    <div class="sub-header">
+      <button class="icon-btn" id="contactsBackBtn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+      </button>
+      <div class="sub-header-title">Registered Phone Numbers</div>
+    </div>
+    <div class="chat-list" id="contactsList"></div>
   </div>
 
   <!-- ============ CHAT CONVERSATION SCREEN ============ -->
   <div class="screen" id="chatScreen">
-    <div class="chat-header">
+    <div class="chat-header sub-header">
       <button class="icon-btn" id="backBtn">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
       </button>
       <div class="avatar" id="chatAvatar"></div>
       <div class="chat-header-info">
         <div class="chat-header-name" id="chatName"></div>
-        <div class="chat-header-status" id="chatStatus">online</div>
+        <div class="chat-header-status" id="chatStatus"></div>
       </div>
-      <button class="icon-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg></button>
-      <button class="icon-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg></button>
-      <button class="icon-btn"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="12" cy="19" r="1.6"/></svg></button>
     </div>
 
-    <div class="messages" id="messages">
-      <svg class="feather-deco" viewBox="0 0 80 100" fill="none" stroke="currentColor" stroke-width="1.2">
-        <path d="M55 12C40 25 25 45 15 85c15-7 35-20 45-40 4-8 4-15-1-20-3-3-3-3-4-1Z"/>
-        <path d="M15 85c8-6 16-14 22-24"/>
-        <path d="M60 18c5 2 10 3 14 1M66 10c4 2 7 2 10 0M52 26c4 3 9 3 12 1"/>
-      </svg>
-    </div>
+    <div class="messages" id="messages"></div>
 
     <div class="composer">
-      <button class="icon-btn">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-      </button>
       <input type="text" id="msgInput" placeholder="Type a message...">
-      <button class="icon-btn">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
-      </button>
       <button class="send-btn" id="sendBtn">
         <svg viewBox="0 0 24 24" fill="currentColor"><path d="M2 21l21-9L2 3v7l15 2-15 2z"/></svg>
       </button>
@@ -314,123 +286,203 @@
     b.textContent = '⚠️ ' + msg;
     b.style.display = 'block';
   }
-  window.addEventListener('error', function(e){
-    showDebug('Error: ' + e.message + ' (line ' + e.lineno + ')');
-  });
+  window.addEventListener('error', function(e){ showDebug('Error: ' + e.message + ' (line ' + e.lineno + ')'); });
 
   // ============================================================
-  // LINE-ART ICONS
+  // FIREBASE
   // ============================================================
-  const icons = {
-    profile: `<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M16 10c6-4 14-2 17 5 2 5 1 10-2 13l1 8h-6l-1-6c-6 1-11-3-12-9-1-5 0-9 3-11Z"/><path d="M18 20c0 2 1 3 2 3"/></svg>`,
-    feather: `<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M34 8C24 14 14 24 10 38c10-4 22-12 28-22 2-3 2-6-1-8-2-1-2-1-3 0Z"/><path d="M10 38c6-4 12-10 17-17"/></svg>`,
-    lantern: `<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="16" y="14" width="16" height="20" rx="3"/><path d="M20 14v-4h8v4M20 34v4h8v-4M24 4v4M24 40v4"/></svg>`,
-    book: `<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M24 12c-4-3-10-3-14-1v24c4-2 10-2 14 1 4-3 10-3 14-1V11c-4-2-10-2-14 1Z"/><path d="M24 12v24"/></svg>`,
-    coffee: `<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M10 20h22v9a11 11 0 0 1-11 11 11 11 0 0 1-11-11Z"/><path d="M32 22h3a5 5 0 0 1 0 10h-3"/><path d="M14 34h16"/><ellipse cx="21" cy="38" rx="12" ry="2"/></svg>`,
-    people: `<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="17" cy="18" r="5"/><circle cx="31" cy="18" r="5"/><path d="M8 36c1-6 5-9 9-9s8 3 9 9M22 36c1-6 5-9 9-9s8 3 9 9"/></svg>`,
-    plant: `<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M24 40V20"/><path d="M24 22c0-8 8-12 12-12 0 8-4 14-12 12Z"/><path d="M24 26c0-6-6-9-10-9 0 6 3 11 10 9Z"/></svg>`,
-    moon: `<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M30 8a16 16 0 1 0 10 26 12 12 0 0 1-10-26Z"/><path d="M36 10l1 3 3 1-3 1-1 3-1-3-3-1 3-1Z" fill="currentColor" stroke="none"/></svg>`
+  const firebaseConfig = {
+    apiKey: "AIzaSyB2pqAfH1hPW8M5GXeZpjVkknm72G--fr8",
+    authDomain: "quill-34ba9.firebaseapp.com",
+    projectId: "quill-34ba9",
+    storageBucket: "quill-34ba9.firebasestorage.app",
+    messagingSenderId: "946011366725",
+    appId: "1:946011366725:web:0b17d601de7d4dcfa08a2c"
   };
-
-  // ============================================================
-  // ASLI DATA — abhi khaali hai. Jab koi real connect/message system
-  // banega, tab ye Firestore se aayega. Filhaal koi fake/sample data nahi.
-  // ============================================================
-  const chats = [];
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.firestore();
 
   document.addEventListener('DOMContentLoaded', function(){
 
-  const chatListEl = document.getElementById('chatList');
+    const urlParams = new URLSearchParams(window.location.search);
+    const me = {
+      name: urlParams.get('name') || '',
+      phone: urlParams.get('phone') || '',
+      userId: urlParams.get('uid') || ''
+    };
 
-  // ============================================================
-  // LOGIN FILE SE AAYA DATA (URL ke through) — taaki pata chale kaun login hai
-  // ============================================================
-  const urlParams = new URLSearchParams(window.location.search);
-  const currentUser = {
-    name: urlParams.get('name') || '',
-    phone: urlParams.get('phone') || '',
-    userId: urlParams.get('uid') || ''
-  };
-
-  document.getElementById('debugParams').textContent =
-    'DEBUG raw url: ' + window.location.href + ' | parsed name="' + currentUser.name + '"';
-
-  if(currentUser.name){
-    const wl = document.getElementById('welcomeLine');
-    wl.textContent = 'Logged in as ' + currentUser.name + (currentUser.userId ? ' (' + currentUser.userId + ')' : '');
-    wl.style.display = 'block';
-
-    // ============================================================
-    // KHUD KA CHAT BOX — WhatsApp ke "Message Yourself" jaisa
-    // ============================================================
-    chats.unshift({
-      id: 'self',
-      name: currentUser.name + ' (You)',
-      icon: 'feather',
-      dark: true,
-      status: 'Message yourself',
-      unread: 0,
-      time: 'now',
-      preview: 'Khud ko note likhne ke liye tap karein',
-      messages: []
-    });
-  }
-
-  function renderChatList(){
-    chatListEl.innerHTML = '';
-
-    if(chats.length === 0){
-      chatListEl.innerHTML = `
-        <div class="empty-state">
-          <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M34 8C24 14 14 24 10 38c10-4 22-12 28-22 2-3 2-6-1-8-2-1-2-1-3 0Z"/><path d="M10 38c6-4 12-10 17-17"/></svg>
-          <div class="et">Koi chat nahi hai</div>
-          <div class="es">Jab koi tumse connect karega ya message bhejega, wahi yahan dikhega.</div>
-        </div>
-      `;
-      return;
+    if(me.name){
+      const wl = document.getElementById('welcomeLine');
+      wl.textContent = 'Logged in as ' + me.name + (me.userId ? ' (' + me.userId + ')' : '');
+      wl.style.display = 'block';
     }
 
-    chats.forEach(chat => {
-      const row = document.createElement('div');
-      row.className = 'chat-row';
-      row.innerHTML = `
-        <div class="avatar ${chat.dark ? 'dark' : ''}">${icons[chat.icon]}</div>
-        <div class="chat-info">
-          <div class="chat-top">
-            <div class="chat-name">${chat.name}</div>
-            <div class="chat-time">${chat.time}</div>
+    const chatListEl = document.getElementById('chatList');
+    const contactsListEl = document.getElementById('contactsList');
+    const listScreen = document.getElementById('listScreen');
+    const contactsScreen = document.getElementById('contactsScreen');
+    const chatScreen = document.getElementById('chatScreen');
+    const messagesEl = document.getElementById('messages');
+
+    let liveChats = []; // Firestore se aaya realtime chat list
+    let activeChatId = null;
+    let activeMsgUnsub = null;
+
+    function initialsOf(name){ return (name || '?').trim()[0].toUpperCase(); }
+
+    function chatIdFor(phoneA, phoneB){
+      return [phoneA, phoneB].sort().join('_');
+    }
+
+    // ---------------------------------------------------------
+    // CHAT LIST render (self-note + real Firestore chats)
+    // ---------------------------------------------------------
+    function renderChatList(){
+      chatListEl.innerHTML = '';
+
+      if(!me.phone){
+        chatListEl.innerHTML = `<div class="empty-state"><div class="et">Pehle login karein</div><div class="es">Chats dekhne ke liye pehle apne account se sign in karein.</div></div>`;
+        return;
+      }
+
+      const items = [];
+
+      // Khud ka note-to-self box
+      items.push({
+        id: 'self',
+        name: me.name + ' (You)',
+        dark: true,
+        time: 'now',
+        preview: 'Khud ko note likhein',
+        isSelf: true
+      });
+
+      liveChats.forEach(c => items.push(c));
+
+      if(items.length === 0){
+        chatListEl.innerHTML = `<div class="empty-state"><div class="et">Koi chat nahi hai</div><div class="es">Neeche wale button se naya chat shuru karein.</div></div>`;
+        return;
+      }
+
+      items.forEach(item => {
+        const row = document.createElement('div');
+        row.className = 'chat-row';
+        row.innerHTML = `
+          <div class="avatar ${item.dark ? 'dark' : ''}">${initialsOf(item.name)}</div>
+          <div class="chat-info">
+            <div class="chat-top">
+              <div class="chat-name">${item.name}</div>
+              <div class="chat-time">${item.time || ''}</div>
+            </div>
+            <div class="chat-bottom">
+              <div class="chat-preview">${item.preview || ''}</div>
+            </div>
           </div>
-          <div class="chat-bottom">
-            <div class="chat-preview">${chat.preview}</div>
-            ${chat.unread > 0 ? `<div class="unread-badge">${chat.unread}</div>` : ''}
-          </div>
-        </div>
-      `;
-      row.addEventListener('click', () => openChat(chat.id));
-      chatListEl.appendChild(row);
+        `;
+        row.addEventListener('click', () => {
+          if(item.isSelf) openSelfChat();
+          else openRealChat(item.id, item.name);
+        });
+        chatListEl.appendChild(row);
+      });
+    }
+
+    // ---------------------------------------------------------
+    // Realtime listener: mere saare chats (Firestore)
+    // ---------------------------------------------------------
+    if(me.phone){
+      db.collection('chats')
+        .where('participants', 'array-contains', me.phone)
+        .onSnapshot(function(snap){
+          liveChats = [];
+          snap.forEach(doc => {
+            const d = doc.data();
+            const otherPhone = d.participants.find(p => p !== me.phone) || me.phone;
+            const otherName = (d.participantNames && d.participantNames[otherPhone]) || otherPhone;
+            liveChats.push({
+              id: doc.id,
+              name: otherName,
+              time: d.lastMessageTime ? '' : '',
+              preview: d.lastMessage || 'Chat shuru hui',
+              _sortTime: d.lastMessageTime ? d.lastMessageTime.toMillis() : 0
+            });
+          });
+          liveChats.sort((a,b) => b._sortTime - a._sortTime);
+          renderChatList();
+        }, function(err){
+          showDebug('Chats load error: ' + err.message);
+        });
+    } else {
+      renderChatList();
+    }
+
+    // ---------------------------------------------------------
+    // SEAL BUTTON — contacts list kholo
+    // ---------------------------------------------------------
+    document.getElementById('sealMark').addEventListener('click', async function(){
+      if(!me.phone){ alert('Pehle login karein'); return; }
+      contactsListEl.innerHTML = '<div class="empty-state"><div class="es">Load ho raha hai...</div></div>';
+      contactsScreen.classList.add('open');
+      try{
+        const snap = await db.collection('users').get();
+        contactsListEl.innerHTML = '';
+        let count = 0;
+        snap.forEach(doc => {
+          const d = doc.data();
+          if(d.phone === me.phone) return;
+          count++;
+          const row = document.createElement('div');
+          row.className = 'chat-row';
+          row.innerHTML = `
+            <div class="avatar">${initialsOf(d.name)}</div>
+            <div class="chat-info">
+              <div class="chat-top"><div class="chat-name">${d.name}</div></div>
+              <div class="chat-bottom"><div class="chat-preview">+91 ${d.phone}</div></div>
+            </div>
+          `;
+          row.addEventListener('click', () => startChatWith(d.phone, d.name));
+          contactsListEl.appendChild(row);
+        });
+        if(count === 0){
+          contactsListEl.innerHTML = '<div class="empty-state"><div class="et">Koi aur registered nahi hai</div><div class="es">Jab koi doosra insaan Quill par Sign Up karega, wo yahan dikhega.</div></div>';
+        }
+      } catch(err){
+        showDebug('Contacts load error: ' + err.message);
+      }
     });
-  }
-  document.getElementById('sealMark').innerHTML = icons.feather;
 
-  const chatScreen = document.getElementById('chatScreen');
-  const messagesEl = document.getElementById('messages');
-  const featherDecoHTML = document.querySelector('.feather-deco').outerHTML;
+    document.getElementById('contactsBackBtn').addEventListener('click', () => {
+      contactsScreen.classList.remove('open');
+    });
 
-  function openChat(id){
-    const chat = chats.find(c => String(c.id) === String(id));
-    if(!chat) return;
+    // ---------------------------------------------------------
+    // Naya chat shuru karo (ya purana khol do agar pehle se hai)
+    // ---------------------------------------------------------
+    async function startChatWith(otherPhone, otherName){
+      const id = chatIdFor(me.phone, otherPhone);
+      const ref = db.collection('chats').doc(id);
+      const snap = await ref.get();
+      if(!snap.exists){
+        await ref.set({
+          participants: [me.phone, otherPhone],
+          participantNames: { [me.phone]: me.name, [otherPhone]: otherName },
+          lastMessage: '',
+          lastMessageTime: firebase.firestore.FieldValue.serverTimestamp()
+        });
+      }
+      contactsScreen.classList.remove('open');
+      openRealChat(id, otherName);
+    }
 
-    const avatarEl = document.getElementById('chatAvatar');
-    avatarEl.innerHTML = icons[chat.icon];
-    avatarEl.classList.toggle('dark', chat.dark);
-    document.getElementById('chatName').textContent = chat.name;
-    document.getElementById('chatStatus').textContent = chat.status;
+    // ---------------------------------------------------------
+    // Asli (Firestore) chat kholna, real-time messages
+    // ---------------------------------------------------------
+    function openRealChat(chatId, otherName){
+      activeChatId = chatId;
+      document.getElementById('chatAvatar').classList.remove('dark');
+      document.getElementById('chatAvatar').textContent = initialsOf(otherName);
+      document.getElementById('chatName').textContent = otherName;
+      document.getElementById('chatStatus').textContent = '';
 
-    chat.unread = 0;
-    renderChatList();
-
-    const todayStr = new Date().toLocaleDateString('en-IN', { day:'numeric', month:'short', year:'numeric' });
-    messagesEl.innerHTML = featherDecoHTML + '<div class="date-divider"><span class="dash">·</span>' + todayStr + '<span class="dash">·</span></div>';
-    chat.messages.forEach(m => {
-      const row = document.createElement('div');
-      row.className = 'bubble-row ' 
+      if(activeMsgUnsub) activeMsgUnsub();
+      messagesEl.innerH
