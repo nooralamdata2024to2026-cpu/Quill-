@@ -244,8 +244,9 @@
         </button>
       </div>
     </div>
-    <div class="tagline">write. share. connect.</div>
+    <div class="tagline">write. share. connect. <span style="font-size:0.6rem; opacity:0.4;">[build-v5]</span></div>
     <div class="welcome-line" id="welcomeLine" style="display:none;"></div>
+    <div id="debugParams" style="padding:0 18px 6px; font-size:0.75rem; color:#8c2f2f; font-family:monospace;"></div>
 
     <div class="tabs-row">
       <div class="tab-item active">
@@ -350,6 +351,10 @@
     phone: urlParams.get('phone') || '',
     userId: urlParams.get('uid') || ''
   };
+
+  document.getElementById('debugParams').textContent =
+    'DEBUG raw url: ' + window.location.href + ' | parsed name="' + currentUser.name + '"';
+
   if(currentUser.name){
     const wl = document.getElementById('welcomeLine');
     wl.textContent = 'Logged in as ' + currentUser.name + (currentUser.userId ? ' (' + currentUser.userId + ')' : '');
@@ -428,11 +433,4 @@
     messagesEl.innerHTML = featherDecoHTML + '<div class="date-divider"><span class="dash">·</span>' + todayStr + '<span class="dash">·</span></div>';
     chat.messages.forEach(m => {
       const row = document.createElement('div');
-      row.className = 'bubble-row ' + (m.out ? 'out' : '');
-      row.innerHTML = `<div class="bubble ${m.out ? 'out' : 'in'}">${m.text}<span class="bubble-time">${m.time}${m.out ? ' ✓✓' : ''}</span></div>`;
-      messagesEl.appendChild(row);
-    });
-
-    chatScreen.classList.add('open');
-    chatScreen.dataset.activeId = id;
-    messagesEl.scrollTop = messagesEl.
+      row.className = 'bubble-row ' 
